@@ -15,11 +15,11 @@ module StatusLogger
 
           to = 'pending'
 
-          last_status_change_log = self.status_change_logs.last
+          last_status_log = self.status_logs.last
 
-          if last_status_change_log.present?
-            from = last_status_change_log.to
-            started_at = last_status_change_log.transition_ended_at
+          if last_status_log.present?
+            from = last_status_log.to
+            started_at = last_status_log.transition_ended_at
           else
             from = nil
             started_at = self.created_at
@@ -29,16 +29,18 @@ module StatusLogger
 
           elapsed_time = started_at.to_time - ended_at
 
-          elapsed_business_time_in_seconds = started_at.business_time_until(transition_ended_at).to_i
+          elapsed_business_time = started_at
+                                    .business_time_until(transition_ended_at)
+                                    .to_i
 
-          self.status_change_logs
+          self.status_logs
               .create(status_attribute: 'status',
                       from: from,
                       to: to,
-                      transition_started_at: started_at,
-                      transition_ended_at: ended_at,
-                      elapsed_time_in_seconds: elapsed_time,
-                      elapsed_business_time_in_seconds: elapsed_business_time_in_seconds)
+                      started_at: started_at,
+                      ended_at: ended_at,
+                      elapsed_time: elapsed_time,
+                      elapsed_business_time: elapsed_business_time)
         end
     end
 
