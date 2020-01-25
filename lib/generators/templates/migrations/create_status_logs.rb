@@ -11,10 +11,10 @@ class CreateStatusLogs < MIGRATION_CLASS
       t.bigint :status_loggeable_id
       t.string :status_loggeable_type
       t.string :status_attribute
-      t.string :from
-      t.string :to
-      t.string :started_at
-      t.string :ended_at
+      t.integer :from
+      t.integer :to
+      t.datetime :started_at
+      t.datetime :ended_at
       t.bigint :elapsed_time
       t.bigint :elapsed_business_time
 

@@ -3,59 +3,63 @@ module StatusLogger
     extend ActiveSupport::Concern
 
     included do
-      after_save :save_status_changes
+      has_many :status_logs,
+               as: :status_loggeable,
+               dependent: :destroy
+
+      after_save :save_logs
 
       protected
 
-        def save_status_changes
+        def save_logs
           BusinessTime::Config.beginning_of_workday = '8:00 am'
-          BusinessTime::Config.end_of_workday = '7:00 pm'
+          BusinessTime::Config.end_of_workday = '8:00 pm'
 
-          binding.pry
+          status_attributes.each do |status_attr|
 
-          to = 'pending'
+            status_attr = status_attr.to_s
 
-          last_status_log = self.status_logs.last
+            return unless self.send("#{status_attr}_previously_changed?")
 
-          if last_status_log.present?
-            from = last_status_log.to
-            started_at = last_status_log.transition_ended_at
-          else
-            from = nil
-            started_at = self.created_at
+            keys = self.class.name.constantize.send("#{status_attr.pluralize}")
+
+            previous_change = self.send("#{status_attr}_previous_change")
+
+            from = keys[previous_change.first]
+            to = keys[previous_change.last]
+
+            last_status_log = self.status_logs.last
+
+            started_at = if last_status_log.present?
+                           last_status_log.ended_at
+                         else
+                           self.created_at
+                         end
+
+            ended_at = Time.current
+
+            elapsed_time = ended_at - started_at.to_time
+
+            elapsed_business_time = started_at.business_time_until(ended_at)
+                                              .to_i
+
+            self.status_logs
+                .create(status_attribute: status_attr,
+                        from: from,
+                        to: to,
+                        started_at: started_at,
+                        ended_at: ended_at,
+                        elapsed_time: elapsed_time,
+                        elapsed_business_time: elapsed_business_time)
           end
-
-          ended_at = Time.current
-
-          elapsed_time = started_at.to_time - ended_at
-
-          elapsed_business_time = started_at
-                                    .business_time_until(transition_ended_at)
-                                    .to_i
-
-          self.status_logs
-              .create(status_attribute: 'status',
-                      from: from,
-                      to: to,
-                      started_at: started_at,
-                      ended_at: ended_at,
-                      elapsed_time: elapsed_time,
-                      elapsed_business_time: elapsed_business_time)
         end
     end
 
-    class_methods do
+    module ClassMethods
       def acts_as_status_logger(options = {})
-        @status_attributes = options[:status_attributes]
+        cattr_accessor :status_attributes, instance_writer: false
+        self.status_attributes = options[:status_attributes]
       end
     end
   end
 end
-
-# class StatusChangeLog < ApplicationRecord
-#   belongs_to :status_loggeable, polymorphic: true
-# end
-
-# class JobApplication < ApplicationRecord
-#   has_many :status_change_logs, as: :status_loggeable
-# end
